@@ -1,5 +1,9 @@
 import http from 'node:http'
 import { spawn } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
+import path from 'node:path'
+import fs from 'node:fs'
 
 const port = 5174
 const host = 'localhost'
@@ -21,6 +25,16 @@ function existingServer() {
   })
 }
 
+function resolveViteBin() {
+  try {
+    const require = createRequire(import.meta.url)
+    const pkgPath = require.resolve('vite/package.json')
+    const binPath = path.join(path.dirname(pkgPath), 'bin/vite.js')
+    if (fs.existsSync(binPath)) return binPath
+  } catch {}
+  return fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url))
+}
+
 const status = await existingServer()
 
 if (status === 'placenexus-vite') {
@@ -29,7 +43,8 @@ if (status === 'placenexus-vite') {
   console.error(`Port ${port} is occupied by a service that is not the PlaceNexus Vite server. Stop that intended process manually, then run npm run dev again.`)
   process.exitCode = 1
 } else {
-  const vite = spawn(process.platform === 'win32' ? 'vite.cmd' : 'vite', [], { stdio: 'inherit' })
+  const viteBin = resolveViteBin()
+  const vite = spawn(process.execPath, [viteBin, ...process.argv.slice(2)], { stdio: 'inherit' })
   vite.on('error', (error) => {
     console.error(`Unable to start Vite: ${error.message}`)
     process.exitCode = 1
